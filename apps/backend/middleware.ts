@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const allowedOrigins = [
-  process.env.NODE_ENV === 'production'
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000',
-  // Vercel preview deployments
-  `https://${process.env.VERCEL_BRANCH_URL}`,
+  'http://localhost:3000', // Development
+  'https://yachtvault.vercel.app' // Production Frontend
 ];
+
+// Dynamically add Vercel preview URLs
+if (process.env.VERCEL_URL) {
+  // VERCEL_URL is the canonical URL of the deployment, includes branch URLs like "yachtvault-git-dev-damien-jar.vercel.app"
+  allowedOrigins.push(`https://${process.env.VERCEL_URL}`);
+}
 
 export function middleware(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -15,7 +18,8 @@ export function middleware(request: NextRequest) {
   // Handle preflight requests
   if (request.method === 'OPTIONS') {
     const response = new NextResponse(null, { status: 204 });
-    if (origin && allowedOrigins.includes(origin)) {
+    // Use .some() for more flexible matching, e.g., for preview URLs
+    if (origin && allowedOrigins.some(allowed => origin.endsWith(allowed))) {
       response.headers.set('Access-Control-Allow-Origin', origin);
     }
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -25,9 +29,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Handle main requests
-  const response = NextResponse.next({ request: { headers: requestHeaders }});
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && allowedOrigins.some(allowed => origin.endsWith(allowed))) {
     response.headers.set('Access-Control-Allow-Origin', origin);
   }
 
