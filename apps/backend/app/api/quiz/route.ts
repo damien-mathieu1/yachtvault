@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Call the RPC function to get a pool of 40 random yachts
-        let query = supabase.from('yachts_enhance_data').select('id, name, builder, yacht_pictures, length_m, year_built, max_speed_kn, volume_gt, price, owner, detail_url').not('yacht_pictures', 'is', null).not('name', 'is', null).not('builder', 'is', null).limit(40);
+        let query = supabase.from('yachts_enhance_data').select('id, name, builder, yacht_pictures, length_m, year_built, max_speed_kn, volume_gt, price, owner, detail_url').not('yacht_pictures', 'is', null).filter('yacht_pictures', 'neq', '{}').not('name', 'is', null).not('builder', 'is', null).limit(40);
 
         if (minLength) {
             query = query.gte('length_m', parseInt(minLength, 10));

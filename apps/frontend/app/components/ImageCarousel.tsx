@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useSwipeable } from "react-swipeable"
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -65,10 +66,24 @@ export default function ImageCarousel({ images, title }: ImageCarouselProps) {
     setZoomedIndex(null)
   }
 
+  const handlers = useSwipeable({
+    onSwipedLeft: () => nextImage(),
+    onSwipedRight: () => prevImage(),
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
+  const zoomedHandlers = useSwipeable({
+    onSwipedLeft: () => nextZoomedImage(),
+    onSwipedRight: () => prevZoomedImage(),
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
   return (
     <div className="w-full mx-auto">
       <div className="relative">
-        <div className="relative w-full h-64 md:h-[450px] rounded-lg overflow-hidden bg-muted">
+        <div {...handlers} className="relative w-full h-64 md:h-[450px] rounded-lg overflow-hidden bg-muted touch-pan-y">
           <Image
             key={currentIndex}
             src={images[currentIndex] || "/placeholder.svg"}
@@ -130,7 +145,7 @@ export default function ImageCarousel({ images, title }: ImageCarouselProps) {
       <Dialog open={zoomedIndex !== null} onOpenChange={(open) => !open && closeZoom()}>
         <DialogContent className="max-w-7xl w-full h-full max-h-screen p-0 bg-black/95 border-none">
           {zoomedIndex !== null && (
-            <div className="relative w-full h-full flex items-center justify-center">
+            <div {...zoomedHandlers} className="relative w-full h-full flex items-center justify-center">
               <Image
                 src={images[zoomedIndex] || "/placeholder.svg"}
                 alt={`${title} - Zoomed Image ${zoomedIndex + 1}`}
