@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { API_URL } from '@/lib/api';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Ship, Wind, Ruler, Weight, Link2, AlertCircle, Search, X, ChevronsUpDown, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Ship, Wind, Ruler, Weight, Link2, AlertCircle, Search, X, ChevronsUpDown, Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Euro, Users } from 'lucide-react';
 
 // Types based on Supabase data structure
 interface Yacht {
+  id: string;
   name: string;
   builder: string;
   year_built: number;
@@ -24,8 +25,10 @@ interface Yacht {
   beam_m: number;
   volume_gt: number;
   max_speed_kn: number;
-  yacht_picture: string;
+  yacht_pictures: string[];
   detail_url: string;
+  price?: number;
+  owner?: string;
 }
 
 interface ApiResponse {
@@ -133,55 +136,42 @@ export default function YachtList() {
   const [brokenImages, setBrokenImages] = useState<string[]>([]);
 
   // Get filters from URL
-  const page = searchParams.get('page') || '1';
-  const limit = searchParams.get('limit') || '25';
   const search = searchParams.get('search') || '';
+  const minLength = searchParams.get('minLength') || '';
+  const maxLength = searchParams.get('maxLength') || '';
   const builder = searchParams.get('builder') || '';
-  const sortBy = searchParams.get('sortBy') || 'length_m.desc';
+  const sortBy = searchParams.get('sortBy') || 'year_built.desc';
+  const limit = searchParams.get('limit') || '12';
+  const page = Number(searchParams.get('page')) || 1;
 
-  const createQueryString = useCallback(
-    (paramsToUpdate: Record<string, string | number | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [name, value] of Object.entries(paramsToUpdate)) {
-        if (value) {
-          params.set(name, String(value));
-        } else {
-          params.delete(name);
-        }
+  const updateSearchParams = useCallback((newParams: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
       }
-      // Reset page to 1 when filters change
-      if (Object.keys(paramsToUpdate).some(k => k !== 'page')) {
-        params.set('page', '1');
-      }
-      return params.toString();
-    },
-    [searchParams]
-  );
-
-  // Debounced search handler
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push(`${pathname}?${createQueryString({ search: search || undefined })}`);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]); // This effect should only depend on the raw search input
+    });
+    router.push(`${pathname}?${params.toString()}`);
+  }, [searchParams, router, pathname]);
 
   const fetchYachts = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const params = new URLSearchParams(searchParams.toString());
-            const response = await fetch(`${API_URL}/api/yachts?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch yachts from the server.');
-      const data: ApiResponse = await response.json();
+      const response = await fetch(`${API_URL}/api/yachts?${searchParams.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch yachts.');
+      const data = await response.json();
       if (data.success) {
         setYachts(data.data);
         setPagination(data.pagination);
       } else {
-        throw new Error('The API returned an error.');
+        throw new Error('API request was not successful.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
     } finally {
       setLoading(false);
     }
@@ -189,7 +179,7 @@ export default function YachtList() {
 
   const fetchBuilders = useCallback(async () => {
     try {
-            const response = await fetch(`${API_URL}/api/yachts/builders`);
+      const response = await fetch(`${API_URL}/api/yachts/builders`);
       const data = await response.json();
       if (data.success) {
         setBuilders(data.data);
@@ -201,14 +191,14 @@ export default function YachtList() {
 
   useEffect(() => {
     fetchYachts();
-  }, [fetchYachts]);
+  }, [searchParams, fetchYachts]);
 
   useEffect(() => {
     fetchBuilders();
   }, [fetchBuilders]);
 
   const handlePageChange = (newPage: number) => {
-    router.push(`${pathname}?${createQueryString({ page: newPage })}`);
+    updateSearchParams({ page: newPage.toString() });
   };
 
   const resetFilters = () => {
@@ -249,7 +239,12 @@ export default function YachtList() {
               id="search"
               placeholder="e.g. 'Octopus'"
               defaultValue={search}
-              onChange={(e) => router.push(`${pathname}?${createQueryString({ search: e.target.value || undefined })}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  updateSearchParams({ search: e.currentTarget.value, page: '1' });
+                }
+              }}
+              className="w-full"
             />
           </div>
 
@@ -274,7 +269,7 @@ export default function YachtList() {
                           value={b}
                           onSelect={(currentValue: any) => {
                             const newBuilder = currentValue === builder ? '' : currentValue;
-                            router.push(`${pathname}?${createQueryString({ builder: newBuilder || undefined })}`);
+                            updateSearchParams({ builder: newBuilder || undefined });
                             setPopoverOpen(false);
                           }}
                         >
@@ -290,10 +285,30 @@ export default function YachtList() {
           </div>
 
           <div>
+            <label className="text-sm font-medium text-muted-foreground">Min Length (m)</label>
+            <Input
+              placeholder="Min Length (m)"
+              type="number"
+              defaultValue={minLength}
+              onKeyDown={(e) => e.key === 'Enter' && updateSearchParams({ minLength: e.currentTarget.value, page: '1' })}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Max Length (m)</label>
+            <Input
+              placeholder="Max Length (m)"
+              type="number"
+              defaultValue={maxLength}
+              onKeyDown={(e) => e.key === 'Enter' && updateSearchParams({ maxLength: e.currentTarget.value, page: '1' })}
+            />
+          </div>
+
+          <div>
             <label className="text-sm font-medium text-muted-foreground">Sort By</label>
             <Select
               value={sortBy}
-              onValueChange={(value: any) => router.push(`${pathname}?${createQueryString({ sortBy: value })}`)}
+              onValueChange={(value) => updateSearchParams({ sortBy: value, page: '1' })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Sort by..." />
@@ -309,7 +324,7 @@ export default function YachtList() {
             </Select>
           </div>
 
-          <Button onClick={resetFilters} variant="outline" className="w-full">
+          <Button onClick={() => router.push(pathname)} variant="outline" className="w-full">
             <X className="mr-2 h-4 w-4" /> Reset Filters
           </Button>
         </div>
@@ -335,13 +350,12 @@ export default function YachtList() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {yachts.map((yacht) => {
-            const imgSrc = brokenImages.includes(yacht.yacht_picture)
-              ? '/placeholder.svg'
-              : yacht.yacht_picture || '/placeholder.svg';
+            const firstImage = (yacht.yacht_pictures && yacht.yacht_pictures.length > 0 && yacht.yacht_pictures[0]) || '/placeholder.svg';
+            const imgSrc = brokenImages.includes(firstImage) ? '/placeholder.svg' : firstImage;
 
             return (
-              <Card key={yacht.name} className="overflow-hidden flex flex-col">
-                <CardHeader className="p-0">
+              <Card key={yacht.id} className="overflow-hidden flex flex-col">
+                <CardHeader className="p-0 cursor-pointer" onClick={() => router.push(`/yacht/${yacht.id}`)}>
                   <div className="relative w-full h-48">
                     <Image
                       src={imgSrc}
@@ -349,25 +363,29 @@ export default function YachtList() {
                       fill
                       style={{ objectFit: 'cover' }}
                       className="transition-transform duration-300 hover:scale-110"
-                      onError={() => setBrokenImages(prev => [...prev, yacht.yacht_picture])}
+                      onError={() => {
+                        if (firstImage !== '/placeholder.svg') {
+                          setBrokenImages(prev => [...prev, firstImage]);
+                        }
+                      }}
                     />
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4 flex-grow">
                   <CardTitle className="truncate">{yacht.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground truncate">{yacht.builder}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Badge variant="secondary"><Ruler className="mr-1 h-3 w-3" /> {yacht.length_m}m</Badge>
-                    <Badge variant="secondary"><Wind className="mr-1 h-3 w-3" /> {yacht.max_speed_kn} kn</Badge>
-                    <Badge variant="secondary"><Weight className="mr-1 h-3 w-3" /> {yacht.volume_gt} GT</Badge>
+                  <p className="text-sm text-muted-foreground truncate">{yacht.builder || 'N/A'}</p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    {yacht.length_m && <Badge variant="secondary"><Ruler className="mr-1 h-3 w-3" /> {yacht.length_m}m</Badge>}
+                    {yacht.max_speed_kn && <Badge variant="secondary"><Wind className="mr-1 h-3 w-3" /> {yacht.max_speed_kn} kn</Badge>}
+                    {yacht.volume_gt && <Badge variant="secondary"><Weight className="mr-1 h-3 w-3" /> {yacht.volume_gt} GT</Badge>}
+                    {yacht.price && <Badge variant="outline" className="text-green-600 border-green-600"><Euro className="mr-1 h-3 w-3" /> {yacht.price.toLocaleString()}</Badge>}
+                    {yacht.owner && <Badge variant="outline"><Users className="mr-1 h-3 w-3" /> {yacht.owner}</Badge>}
                   </div>
                 </CardContent>
                 <CardFooter className="flex gap-2">
-                  <Link href={`/yacht/${encodeURIComponent(yacht.name || '')}?${searchParams.toString()}`} passHref className="flex-1">
-                    <Button asChild className="w-full">
-                      <a><Ship className="mr-2 h-4 w-4" /> Details</a>
-                    </Button>
-                  </Link>
+                  <Button asChild className="w-full flex-1" onClick={() => router.push(`/yacht/${yacht.id}`)}>
+                    <a><Ship className="mr-2 h-4 w-4" /> Details</a>
+                  </Button>
                   {yacht.detail_url && (
                     <a href={yacht.detail_url} target="_blank" rel="noopener noreferrer">
                       <Button variant="outline" size="icon">

@@ -11,9 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Loader2, AlertCircle, CheckCircle2, XCircle, Star, Home, Ship, Wrench, ArrowRight, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, XCircle, Star, Home, Ship, Wrench, ArrowRight, ExternalLink, Ruler, Wind, Weight, Euro, Users } from 'lucide-react';
+import ImageCarousel from '@/components/ImageCarousel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { API_URL } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 // Types
 type QuizType = 'name' | 'builder' | 'mixed';
@@ -21,18 +23,16 @@ type QuizType = 'name' | 'builder' | 'mixed';
 interface QuizQuestion {
   yacht: {
     name: string;
-    yacht_picture: string;
+    yacht_pictures: string[];
     builder: string;
     length_m: number;
     year_built: number;
     volume_gt: number;
     max_speed_kn: number;
     detail_url: string;
-    beam_m: number;
-    exterior_designer: string;
-    interior_designer: string;
-    naval_architect: string;
-    sale_info: string;
+    price?: number;
+    owner?: string;
+    id?: string;
   };
   options: string[];
   correctAnswer: string;
@@ -56,6 +56,7 @@ export default function YachtQuiz() {
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [stats, setStats] = useState<QuizStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0 });
+  const router = useRouter();
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [quizType, setQuizType] = useState<QuizType>('mixed');
   const [lengthRange, setLengthRange] = useState([30, 180]);
@@ -68,7 +69,7 @@ export default function YachtQuiz() {
       const params = new URLSearchParams({ type });
       if (min) params.set('minLength', min);
       if (max) params.set('maxLength', max);
-            const response = await fetch(`${API_URL}/api/quiz?${params.toString()}`);
+      const response = await fetch(`${API_URL}/api/quiz?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch questions.');
       const data = await response.json();
       if (data.success) {
@@ -204,22 +205,17 @@ export default function YachtQuiz() {
             {question && (
               <Card className="w-full max-w-2xl">
                 <CardHeader>
-                  <div className="relative aspect-video w-full overflow-hidden rounded-md border">
-                    {(isImageLoading || !question?.yacht.yacht_picture) && <Skeleton className="absolute inset-0 w-full h-full" />}
-                    {question?.yacht.yacht_picture && (
-                      <Image
-                        key={question?.questionId}
-                        src={question?.yacht.yacht_picture}
-                        alt={`Quiz yacht: ${question?.yacht.name}`}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        onLoad={() => setIsImageLoading(false)}
-                        onError={() => handleNextQuestion()} // Skip on image error
-                        className={cn('transition-opacity duration-300', isImageLoading ? 'opacity-0' : 'opacity-100')}
-                        priority
+
+                  {!question?.yacht.yacht_pictures && <Skeleton className="w-full h-64" />}
+                  {question?.yacht.yacht_pictures && (
+                    <div className="overflow-hidden">
+                      <ImageCarousel
+                        images={question?.yacht.yacht_pictures}
+                        title={`Exterior of ${question?.yacht.name}`}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
+
                 </CardHeader>
                 <CardContent>
                   <CardTitle className="mb-2">
@@ -263,22 +259,30 @@ export default function YachtQuiz() {
                   <AlertDescription>
                     {isCorrect ? 'Well done!' : `The correct answer was ${question?.correctAnswer}.`}
                     <div className="mt-4 flex flex-wrap gap-2 mb-4">
-                      <Badge variant="secondary">Yacht Name: {question?.yacht.name}</Badge>
-                      <Badge variant="secondary">Builder: {question?.yacht.builder}</Badge>
-                      <Badge variant="secondary">Length: {question?.yacht.length_m}m</Badge>
-                      <Badge variant="secondary">Year Built: {question?.yacht.year_built}</Badge>
-                      <Badge variant="secondary">Volume: {question?.yacht.volume_gt} GT</Badge>
-                      <Badge variant="secondary">Max Speed: {question?.yacht.max_speed_kn} kn</Badge>
-                      <Badge variant="secondary">Exterior Designer: {question?.yacht.exterior_designer}</Badge>
-                      <Badge variant="secondary">Interior Designer: {question?.yacht.interior_designer}</Badge>
-                      <Badge variant="secondary">Naval Architect: {question?.yacht.naval_architect}</Badge>
-
-
+                      {question?.yacht.name && <Badge variant="secondary"><Ship className="mr-1 h-3 w-3" /> {question.yacht.name}</Badge>}
+                      {question?.yacht.builder && <Badge variant="secondary"><Wrench className="mr-1 h-3 w-3" /> {question.yacht.builder}</Badge>}
+                      {question?.yacht.length_m && <Badge variant="secondary"><Ruler className="mr-1 h-3 w-3" /> {question.yacht.length_m}m</Badge>}
+                      {question?.yacht.year_built && <Badge variant="secondary">{question.yacht.year_built}</Badge>}
+                      {question?.yacht.volume_gt && <Badge variant="secondary"><Weight className="mr-1 h-3 w-3" /> {question.yacht.volume_gt} GT</Badge>}
+                      {question?.yacht.max_speed_kn && <Badge variant="secondary"><Wind className="mr-1 h-3 w-3" /> {question.yacht.max_speed_kn} kn</Badge>}
+                      {question?.yacht.price && <Badge variant="outline" className="text-green-600 border-green-600"><Euro className="mr-1 h-3 w-3" /> {question.yacht.price.toLocaleString()}</Badge>}
+                      {question?.yacht.owner && <Badge variant="outline"><Users className="mr-1 h-3 w-3" /> {question.yacht.owner}</Badge>}
                     </div>
 
-                    <a href={question?.yacht.detail_url} target="_blank" rel="noopener noreferrer">
-                      <Button>More Info <ExternalLink className="ml-2 h-4 w-4" /></Button>
-                    </a>
+                    <div className="flex flex-wrap gap-2">
+
+                      {question?.yacht.detail_url && (
+                        <a href={question?.yacht.detail_url} target="_blank" rel="noopener noreferrer">
+                          <Button>More Info <ExternalLink className="ml-2 h-4 w-4" /></Button>
+                        </a>
+                      )}
+
+                      <Link href={`/yacht/${question?.yacht.id}`} passHref className="flex-1">
+                        <Button asChild className="w-full" variant={'secondary'}>
+                          <a><Ship className="mr-2 h-4 w-4" /> Details</a>
+                        </Button>
+                      </Link>
+                    </div>
                   </AlertDescription>
                 </Alert>
                 <Button onClick={handleNextQuestion} className="mt-4 w-full md:w-auto">

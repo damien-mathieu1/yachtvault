@@ -15,11 +15,17 @@ type QuizType = 'name' | 'builder' | 'mixed';
 
 interface QuizQuestion {
     yacht: {
+        id: string;
         name: string;
-        yacht_picture: string;
+        yacht_pictures: string[];
         builder: string;
         length_m: number;
         year_built: number;
+        max_speed_kn: number;
+        volume_gt: number;
+        price?: number;
+        owner?: string;
+        detail_url: string;
     };
     options: string[];
     correctAnswer: string;
@@ -49,7 +55,16 @@ export async function GET(request: NextRequest) {
         }
 
         // Call the RPC function to get a pool of 40 random yachts
-        const { data: yachts, error: rpcError } = await supabase.rpc('get_random_yachts', rpcParams);
+        let query = supabase.from('yachts_enhance_data').select('id, name, builder, yacht_pictures, length_m, year_built, max_speed_kn, volume_gt, price, owner, detail_url').not('yacht_pictures', 'is', null).not('name', 'is', null).not('builder', 'is', null).limit(40);
+
+        if (minLength) {
+            query = query.gte('length_m', parseInt(minLength, 10));
+        }
+        if (maxLength) {
+            query = query.lte('length_m', parseInt(maxLength, 10));
+        }
+
+        const { data: yachts, error: rpcError } = await query;
 
         if (rpcError) throw new Error(`Failed to fetch yachts via RPC: ${rpcError.message}`);
         if (!yachts || yachts.length < 4) throw new Error('Not enough yachts in the database for a quiz.');
@@ -89,7 +104,10 @@ export async function GET(request: NextRequest) {
                 if (options.length < 4) continue;
                 const shuffledOptions = options.sort(() => Math.random() - 0.5);
                 question = {
-                    yacht: correctYacht,
+                    yacht: {
+                        ...correctYacht,
+                        yacht_pictures: correctYacht.yacht_pictures || [],
+                    },
                     options: shuffledOptions,
                     correctAnswer: correctYacht.name,
                     questionId: `quiz_name_${Date.now()}_${i}`,
@@ -108,7 +126,10 @@ export async function GET(request: NextRequest) {
                 const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
                 question = {
-                    yacht: correctYacht,
+                    yacht: {
+                        ...correctYacht,
+                        yacht_pictures: correctYacht.yacht_pictures || [],
+                    },
                     options: shuffledOptions,
                     correctAnswer: correctAnswer,
                     questionId: `quiz_builder_${Date.now()}_${i}`,

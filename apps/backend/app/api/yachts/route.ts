@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
   if (!supabase) {
     console.error('Supabase client not initialized - check environment variables');
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Database connection not configured. Please check environment variables.',
         details: {
           supabaseUrl: supabaseUrl ? 'Set' : 'Missing NEXT_PUBLIC_SUPABASE_URL',
@@ -67,14 +67,14 @@ export async function GET(request: NextRequest) {
 
     // Build query with filters
     let query = supabase
-      .from('yachts')
+      .from('yachts_enhance_data')
       .select('*', { count: 'exact' });
-    
+
     // Apply search filter
     if (search) {
       query = query.or(`name.ilike.%${search}%,builder.ilike.%${search}%`);
     }
-    
+
     // Apply length filters
     if (minLength) {
       query = query.gte('length_m', parseFloat(minLength));
@@ -82,12 +82,12 @@ export async function GET(request: NextRequest) {
     if (maxLength) {
       query = query.lte('length_m', parseFloat(maxLength));
     }
-    
+
     // Apply builder filter
     if (builder) {
       query = query.ilike('builder', `%${builder}%`);
     }
-    
+
     // Apply sorting
     const [sortField, sortOrder] = sortBy.split('.');
     const allowedSortFields = ['length_m', 'year_built', 'max_speed_kn', 'volume_gt'];
@@ -100,9 +100,9 @@ export async function GET(request: NextRequest) {
 
     // Apply pagination
     query = query.range(offset, offset + limit - 1);
-    
+
     const { data, error, count } = await query;
-    
+
     if (error) {
       console.error('Supabase error:', error);
       return NextResponse.json(
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     return NextResponse.json({
       success: true,
       data: data || [],
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
-    
+
     return response;
   }
 }
