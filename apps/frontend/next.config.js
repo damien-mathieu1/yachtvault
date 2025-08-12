@@ -11,6 +11,7 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    unoptimized: true,
     domains: ['photos.superyachtapi.com', 'superyachtfan.com', 'www.superyachtfan.com'],
   },
 
